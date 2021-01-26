@@ -1,0 +1,37 @@
+name: test
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v2
+
+      - name: Restore cached dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            go-mod-
+
+      - name: Test with tidy Go module
+        uses: ./
+        with:
+          path: test/good
+
+      - name: Test with untidy Go module
+        id: bad
+        continue-on-error: true
+        uses: ./
+        with:
+          path: test/bad
+
+      - name: Check that untidy Go module failed
+        run: test "${{ steps.bad.outcome }}" = "failure"

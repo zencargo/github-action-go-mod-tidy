@@ -1,0 +1,50 @@
+name: Check Go module tidiness
+
+description: Check the tidiness of a Go module
+
+inputs:
+  path:
+    description: Path to the module
+    required: true
+    default: .
+
+  go-version:
+    description: Version of Go to use
+    required: true
+    default: "1"
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        docker_image="golang:${{ inputs.go-version }}-alpine"
+
+        docker pull "${docker_image}" >/dev/null
+
+        mkdir -p ~/go/pkg/mod
+
+        docker run \
+          --rm \
+          --mount type="bind",source="${HOME}/go/pkg/mod",target="/go/pkg/mod" \
+          --mount type="bind",source="${GITHUB_WORKSPACE}",target="/workspace" \
+          --workdir "/workspace/${{ inputs.path }}" \
+          "${docker_image}" \
+          go mod tidy
+
+        cd "${{ inputs.path }}"
+
+        diff=$(git diff --color -- go.mod go.sum)
+
+        if [[ -z "${diff}" ]]; then
+          printf "\e[32m%s\e[0m\n" \
+            "Go module is tidy!"
+        else
+          echo "${diff}"
+
+          printf "\n\e[31m%s\e[0m\n\n%s\n" \
+            "Go module is untidy!" \
+            'Run `cd ${{ inputs.path }}; go mod tidy` to update it.'
+
+          exit 1
+        fi
