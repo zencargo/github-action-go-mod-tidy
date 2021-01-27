@@ -19,15 +19,19 @@ runs:
     - shell: bash
       run: |
         docker_image="golang:${{ inputs.go-version }}-alpine"
-
         docker pull "${docker_image}" >/dev/null
 
-        mkdir -p ~/go/pkg/mod
+        go_pkg_mod="${HOME}/go/pkg/mod"
+        mkdir -p "${go_pkg_mod}"
+
+        gid=$(id -g)
 
         docker run \
-          --rm \
-          --mount type="bind",source="${HOME}/go/pkg/mod",target="/go/pkg/mod" \
+          --env XDG_CACHE_HOME=/tmp \
+          --mount type="bind",source="${go_pkg_mod}",target="/go/pkg/mod" \
           --mount type="bind",source="${GITHUB_WORKSPACE}",target="/workspace" \
+          --rm \
+          --user "${UID}:${gid}" \
           --workdir "/workspace/${{ inputs.path }}" \
           "${docker_image}" \
           go mod tidy
